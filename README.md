@@ -1,6 +1,6 @@
 # GetQClawAPIKey
 
-一个本地 Node CLI 工具，用微信扫码登录 QClaw，在终端输出 ASCII 二维码、实时日志，并在回调后打印可直接使用的明文 `apiKey`。
+一个本地 Node CLI 工具，用微信扫码登录，获取QClaw的`apiKey`。
 
 ## 启动
 
