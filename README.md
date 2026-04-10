@@ -43,7 +43,7 @@ curl 'https://mmgrcalltoken.3g.qq.com/aizone/v1/chat/completions' \
   }'
 ```
 
-如果是在 OpenClaw 里配置 provider，`baseUrl` 应填写：
+这是openai兼容协议，如果是在 OpenClaw 里配置 provider，`baseUrl` 应填写：
 
 ```text
 https://mmgrcalltoken.3g.qq.com/aizone/v1
