@@ -13,7 +13,7 @@ node server.js
 
 - 在终端输出可扫描的 ASCII 微信登录二维码
 - 轮询扫码状态并打印实时日志
-- 调用 `4055` 获取明文 `apiKey`
+- 获取明文 `apiKey`
 - 在终端打印可直接执行的 `curl` 测试命令
 
 ## API 服务地址
@@ -35,7 +35,7 @@ curl 'https://mmgrcalltoken.3g.qq.com/aizone/v1/chat/completions' \
     "messages": [
       { "role": "user", "content": "hi" }
     ],
-    "max_tokens": 64
+    "max_tokens": 10000
   }'
 ```
 
