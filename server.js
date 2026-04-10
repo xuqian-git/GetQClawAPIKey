@@ -338,8 +338,70 @@ function decodeJpegToBinaryMatrix(buffer) {
   return matrix;
 }
 
+function trimQrMatrix(matrix, padding = 1) {
+  let top = 0;
+  let bottom = matrix.length - 1;
+  let left = 0;
+  let right = matrix[0]?.length - 1 || 0;
+
+  while (top <= bottom && matrix[top].every((cell) => !cell)) {
+    top += 1;
+  }
+  while (bottom >= top && matrix[bottom].every((cell) => !cell)) {
+    bottom -= 1;
+  }
+  while (left <= right && matrix.every((row) => !row[left])) {
+    left += 1;
+  }
+  while (right >= left && matrix.every((row) => !row[right])) {
+    right -= 1;
+  }
+
+  const cropped = matrix
+    .slice(top, bottom + 1)
+    .map((row) => row.slice(left, right + 1));
+
+  const width = cropped[0]?.length || 0;
+  const emptyRow = new Array(width + padding * 2).fill(false);
+  const padded = cropped.map((row) => [
+    ...new Array(padding).fill(false),
+    ...row,
+    ...new Array(padding).fill(false),
+  ]);
+
+  return [
+    ...new Array(padding).fill(null).map(() => emptyRow.slice()),
+    ...padded,
+    ...new Array(padding).fill(null).map(() => emptyRow.slice()),
+  ];
+}
+
 function renderQrMatrix(matrix) {
-  const lines = matrix.map((row) => row.map((cell) => (cell ? '██' : '  ')).join(''));
+  const compactMatrix = trimQrMatrix(matrix, 1);
+  const lines = [];
+
+  for (let y = 0; y < compactMatrix.length; y += 2) {
+    const topRow = compactMatrix[y];
+    const bottomRow = compactMatrix[y + 1] || new Array(topRow.length).fill(false);
+    let line = '';
+
+    for (let x = 0; x < topRow.length; x += 1) {
+      const top = topRow[x];
+      const bottom = bottomRow[x];
+      if (top && bottom) {
+        line += '█';
+      } else if (top) {
+        line += '▀';
+      } else if (bottom) {
+        line += '▄';
+      } else {
+        line += ' ';
+      }
+    }
+
+    lines.push(line);
+  }
+
   return `\n${lines.join('\n')}\n`;
 }
 
@@ -472,7 +534,7 @@ function printApiKey(apiKey) {
       `    "messages": [\n` +
       `      { "role": "user", "content": "hi" }\n` +
       `    ],\n` +
-      `    "max_tokens": 64\n` +
+      `    "max_tokens": 10000\n` +
       `  }'\n`
   );
 }
