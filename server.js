@@ -1,103 +1,24 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const jpeg = require('jpeg-js');
 
-const HOST = '127.0.0.1';
-const PORT = Number(process.env.PORT || 3210);
 const JPRX_BASE_URL = 'https://jprx.m.qq.com';
+const WX_BASE_URL = 'https://open.weixin.qq.com';
+const WX_LONGPOLL_BASE_URL = 'https://long.open.weixin.qq.com';
 const APP_VERSION = '1.4.0';
 const APP_ENV = 'release';
-const COOKIE_NAME = 'qclaw_sid';
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const POLL_INTERVAL_MS = 2000;
 
 const WX_LOGIN_INFO = {
   appid: 'wx9d11056dd75b7240',
   redirectUri: 'https://security.guanjia.qq.com/login',
-  wxLoginStyleBase64:
-    'LnN0YXR1c19pY29uIHsNCiAgICBkaXNwbGF5OiBub25lDQogIH0NCiAgLmltcG93ZXJCb3ggLnN0YXR1cyB7DQogICAgdGV4dC1hbGlnbjogY2VudGVyOw0KICB9DQogIC5pbXBvd2VyQm94IC5sb2dpblBhbmVsLm5vcm1hbFBhbmVsIC50aXRsZXsNCiAgICBkaXNwbGF5OiBub25lOw0KICB9DQogIC5pbXBvd2VyQm94IC5sb2dpblBhbmVsLm5vcm1hbFBhbmVsIC5xcmNvZGUgew0KICAgIG1hcmdpbi10b3A6IDQwcHg7DQogICAgd2lkdGg6IDEyMHB4Ow0KICAgIGhlaWdodDogMTIwcHg7DQogICAgYm9yZGVyOiAwcHg7DQogICAgLy8gYm9yZGVyLXJhZGl1czogNXB4Ow0KICB9DQogIC5pbXBvd2VyQm94IC5zdGF0dXMgew0KICAgIHBhZGRpbmc6IDAgMDsNCiAgICB0ZXh0LWFsaWduOiBjZW50ZXINCiAgfQ0KICAuaW1wb3dlckJveCAuc3RhdHVzIC5zdGF0dXNfdHh0LA0KICAuaW1wb3dlckJveCAuc3RhdHVzLnN0YXR1c19icm93c2VyIHA6bnRoLWNoaWxkKDIpIHsNCiAgICBjb2xvcjogIzAwMDAwMDs7DQogICAgZm9udC1zaXplOiAxNnB4Ow0KICAgIGxpbmUtaGVpZ2h0OiAyMXB4Ow0KICB9DQogIC5pbXBvd2VyQm94IC5zdGF0dXMgLnN0YXR1c190eHR7DQogICAgd2lkdGg6IDEzMHB4Ow0KICAgIGhlaWdodDogMTMwcHg7DQogICAgYmFja2dyb3VuZDogcmdiYSgwLCAwLCAwLCAwLjYpOw0KICAgIGJvcmRlci1yYWRpdXM6IDVweDsNCiAgICBwb3NpdGlvbjogYWJzb2x1dGU7DQogICAgdG9wOiAzMHB4Ow0KICAgIGxlZnQ6IDUwJTsNCiAgICB0cmFuc2Zvcm06IHRyYW5zbGF0ZVgoLTUwJSk7DQogIH0NCg0KICAuaW1wb3dlckJveCAuc3RhdHVzIC5zdGF0dXNfdHh0IGg0IHsNCiAgICBtYXJnaW46IDU2cHggYXV0bzsNCiAgICBkaXNwbGF5OiBmbGV4Ow0KICAgIGZsZXgtZGlyZWN0aW9uOiBjb2x1bW47DQogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsNCiAgICBqdXN0aWZ5LWNvbnRlbnQ6IHNwYWNlLWJldHdlZW47DQogICAgbWluLXdpZHRoOiA1NnB4Ow0KICAgIG1pbi1oZWlnaHQ6IDYwcHg7IA0KICAgIGNvbG9yOiAjRkZGRkZGOw0KICAgIGZvbnQtd2VpZ2h0OiA0MDA7DQogICAgZm9udC1zaXplOiAxNHB4Ow0KICAgIGxpbmUtaGVpZ2h0OiAyMHB4Ow0KICAgIHRleHQtYWxpZ246IGNlbnRlcjsNCiAgfQ0KICAuaW1wb3dlckJveCAuc3RhdHVzIC5zdGF0dXNfdHh0IGg0OjpiZWZvcmV7DQogICAgd2lkdGg6IDMwcHg7DQogICAgaGVpZ2h0OiAzMHB4Ow0KICAgIGNvbnRlbnQ6ICYjMzk7JiMzOTs7DQogICAgYmFja2dyb3VuZDogdXJsKCYjMzk7aHR0cHM6Ly93ZWJjZG4ubS5xcS5jb20vOTlhN2NlYWE4ZDQwY2MxMjI1ZjQ1NzA2NTRkMTNkMjMuc3ZnJiMzOTspIG5vLXJlcGVhdDsNCiAgICBiYWNrZ3JvdW5kLXNpemU6IDMwcHggMzBweDsNCiAgfQ0KICAuaW1wb3dlckJveCAuc3RhdHVzX3R4dCBwIHsNCiAgICB0b3A6IDA7DQogICAgZGlzcGxheTogbm9uZTsNCiAgfQ0KICAuaW1wb3dlckJveCAuaWNvbjM4X21zZy5zdWNjIHsNCiAgICBkaXNwbGF5OiBub25lOw0KICB9DQogIC5pbXBvd2VyQm94IC5pY29uMzhfbXNnLndhcm4gew0KICAgIGRpc3BsYXk6IG5vbmU7DQogIH0NCiAgLmltcG93ZXJCb3ggLnN0YXR1cy5zdGF0dXNfYnJvd3NlciB7DQogICAgZGlzcGxheTogYmxvY2sgIWltcG9ydGFudDsNCiAgfQ0KICAvLyAuaW1wb3dlckJveCAuc3RhdHVzLnN0YXR1c19icm93c2VyIHsNCiAgLy8gICBwb3NpdGlvbjogcmVsYXRpdmU7DQogIC8vICAgbWFyZ2luLXRvcDogOS41cHg7DQogIC8vIH0NCiAgLy8gLmltcG93ZXJCb3ggLnN0YXR1cy5zdGF0dXNfYnJvd3NlciBwOm50aC1jaGlsZCgxKSB7DQogIC8vICAgZGlzcGxheTogbm9uZTsNCiAgLy8gfQ0KICAvLyAuaW1wb3dlckJveCAuc3RhdHVzLnN0YXR1c19icm93c2VyIHA6bnRoLWNoaWxkKDEpOjphZnRlcnsNCiAgLy8gICBjb250ZW50OiAmIzM5OyYjMzk7OyANCiAgLy8gICB9DQogIC5pbXBvd2VyQm94IC5zdGF0dXMuc3RhdHVzX2Jyb3dzZXIgcDpudGgtY2hpbGQoMikgew0KICAgIGRpc3BsYXk6IG5vbmU7DQogIH0NCiAgLmltcG93ZXJCb3ggLnN0YXR1cy5zdGF0dXNfYnJvd3Nlcjo6YWZ0ZXIgew0KICAgIGZvbnQtc2l6ZTogMTJweDsNCiAgICBjb2xvcjogIzhGOEY4RjsNCiAgICBjb250ZW50OiAmIzM5OyYjMzk7OyANCiAgfQ0KICAuaW1wb3dlckJveCAuc3RhdHVzX3R4dCBwIHsNCiAgICBmb250LXNpemU6IDEycHggIWltcG9ydGFudDsNCiAgfQ0KICAuaW1wb3dlckJveCAuc3RhdHVzIHAgew0KICAgIGZvbnQtc2l6ZTogMTJweDsNCiAgICBjb2xvcjogIzhGOEY4RjsNCiAgICBsaW5lLWhlaWdodDogMTZweDsNCiAgICBtYXJnaW4tdG9wOiA1cHg7DQogIH0NCg0KICAud2ViX3FyY29kZV9wYW5lbF9xdWlja19sb2dpbiB7DQogICAgbWFyZ2luLXRvcDogMjVweDsNCiAgfQ0KDQogIC5xbG9naW5fdXNlcl9hdmF0YXIgew0KICAgIHdpZHRoOiA4MHB4Ow0KICAgIGhlaWdodDogODBweDsNCiAgfQ0KDQogIC5xbG9naW5fdXNlcl9uaWNrbmFtZSB7DQogICAgY29sb3I6ICMwMDAwMDA7DQogICAgZm9udC1zaXplOiAxNHB4Ow0KICAgIGZvbnQtd2VpZ2h0OiA0MDA7DQogICAgbWFyZ2luLXRvcDogNXB4Ow0KICAgIG1hcmdpbi1ib3R0b206IDEwcHg7DQogICAgbGluZS1oZWlnaHQ6IDIwcHg7DQogIH0NCg0KICAucWxvZ2luX2J0bi5xbG9naW5fYnRuIHsNCiAgICB3aWR0aDogMTQwcHg7DQogICAgaGVpZ2h0OiA0MHB4Ow0KICAgIGZvbnQtc2l6ZTogMTZweDsNCiAgICBsaW5lLWhlaWdodDogMjJweDsNCiAgICBib3JkZXItcmFkaXVzOiA1cHg7DQogIH0NCiAgLndldWktdG9hc3Qgew0KICAgIHRvcDogMjIlOw0KICB9DQoNCi53cnBfY29kZSB7DQogIGhlaWdodDogMTYwcHg7DQp9DQoud2ViX3FyY29kZV9zd2l0Y2hfd3JwIHsNCiAgbWFyZ2luLXRvcDogMzJweDsNCiAgaGVpZ2h0OiAxNnB4Ow0KICBsaW5lLWhlaWdodDogMTZweDsNCiAgZm9udC13ZWlnaHQ6IDQwMDsNCiAgZm9udC1zaXplOiAxMnB4Ow0KfQ0KDQoucWxvZ2luX21vZCAud2ViX3FyY29kZV9zd2l0Y2hfd3JwIHsNCiAgbWFyZ2luLXRvcDogMzJweDsNCn0NCg0KLndlYl9xcmNvZGVfc3dpdGNoIHsNCiAgZm9udC1zaXplOiAxMnB4Ow0KICBjb2xvcjogIzAwMEY3QTsNCn0='
 };
 
-const sessions = new Map();
-
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const map = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.png': 'image/png',
-    '.svg': 'image/svg+xml',
-  };
-  return map[ext] || 'application/octet-stream';
+function timestamp() {
+  return new Date().toLocaleTimeString('zh-CN', { hour12: false });
 }
 
-function sendJson(res, statusCode, payload, extraHeaders = {}) {
-  const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'Content-Length': Buffer.byteLength(body),
-    ...extraHeaders,
-  });
-  res.end(body);
-}
-
-function sendText(res, statusCode, body, extraHeaders = {}) {
-  res.writeHead(statusCode, {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'Content-Length': Buffer.byteLength(body),
-    ...extraHeaders,
-  });
-  res.end(body);
-}
-
-function parseCookies(req) {
-  const header = req.headers.cookie || '';
-  const cookies = {};
-  for (const part of header.split(';')) {
-    const trimmed = part.trim();
-    if (!trimmed) {
-      continue;
-    }
-    const index = trimmed.indexOf('=');
-    if (index === -1) {
-      continue;
-    }
-    const key = trimmed.slice(0, index);
-    const value = trimmed.slice(index + 1);
-    cookies[key] = decodeURIComponent(value);
-  }
-  return cookies;
-}
-
-function getOrCreateSession(req, res) {
-  const cookies = parseCookies(req);
-  let sid = cookies[COOKIE_NAME];
-  let session = sid ? sessions.get(sid) : null;
-  if (!session) {
-    sid = crypto.randomUUID();
-    session = {
-      id: sid,
-      createdAt: Date.now(),
-    };
-    sessions.set(sid, session);
-    res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(sid)}; Path=/; HttpOnly; SameSite=Lax`);
-  }
-  return session;
-}
-
-async function readJsonBody(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  const raw = Buffer.concat(chunks).toString('utf8');
-  if (!raw) {
-    return {};
-  }
-  return JSON.parse(raw);
+function log(message) {
+  process.stdout.write(`[${timestamp()}] ${message}\n`);
 }
 
 function flattenCandidates(input, out = []) {
@@ -137,17 +58,19 @@ function firstObject(...candidates) {
   return null;
 }
 
-function mapUserInfo(rawUserInfo, fallbackGuid) {
-  const source = rawUserInfo && typeof rawUserInfo === 'object' ? rawUserInfo : {};
-  return {
-    nickname:
-      firstString(source.nickname, source.nick_name) || '',
-    avatar:
-      firstString(source.avatar, source.avatar_url, source.head_img_url, source.head_img) || '',
-    guid: firstString(source.guid, fallbackGuid) || '',
-    userId: firstString(source.userId, source.user_id) || '',
-    ...source,
-  };
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function gcd(a, b) {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x || 1;
 }
 
 function normalizeJprxResponse(raw, response) {
@@ -170,6 +93,7 @@ function normalizeJprxResponse(raw, response) {
       code: response.status,
       message: nestedMessage || `HTTP ${response.status}`,
       data: raw,
+      raw,
     };
   }
 
@@ -209,6 +133,7 @@ async function postJprx(endpoint, payload, session) {
     'X-Account': session.userId || '1',
     'X-Session': '',
   };
+
   if (session.jwtToken) {
     headers['X-OpenClaw-Token'] = session.jwtToken;
   }
@@ -240,6 +165,17 @@ async function postJprx(endpoint, payload, session) {
   return normalizeJprxResponse(raw, response);
 }
 
+function mapUserInfo(rawUserInfo, fallbackGuid) {
+  const source = rawUserInfo && typeof rawUserInfo === 'object' ? rawUserInfo : {};
+  return {
+    nickname: firstString(source.nickname, source.nick_name),
+    avatar: firstString(source.avatar, source.avatar_url, source.head_img_url, source.head_img),
+    guid: firstString(source.guid, fallbackGuid),
+    userId: firstString(source.userId, source.user_id),
+    ...source,
+  };
+}
+
 function applyLoginContext(session, result) {
   const bodyToken = firstString(
     result.data?.token,
@@ -262,27 +198,19 @@ function applyLoginContext(session, result) {
       result.raw?.resp?.data?.user_info
     ) || {};
 
-  const userInfo =
-    mapUserInfo(rawUserInfo, session.guid);
-
+  const userInfo = mapUserInfo(rawUserInfo, session.guid);
   const userId = firstString(
     userInfo.userId,
     userInfo.user_id,
     result.data?.userId,
-    result.data?.user_id,
-    result.raw?.data?.resp?.data?.userId,
-    result.raw?.data?.resp?.data?.user_id
+    result.data?.user_id
   );
-
   const guid = firstString(
     userInfo.guid,
     result.data?.guid,
     result.data?.user_guid,
-    result.raw?.data?.resp?.data?.guid,
-    result.raw?.data?.resp?.data?.user_guid,
     session.guid
   );
-
   const loginKey = firstString(
     userInfo.loginKey,
     userInfo.login_key,
@@ -293,7 +221,6 @@ function applyLoginContext(session, result) {
     result.raw?.data?.resp?.data?.loginKey,
     result.raw?.data?.resp?.data?.login_key
   );
-
   const openclawChannelToken = firstString(
     result.data?.openclawChannelToken,
     result.data?.openclaw_channel_token,
@@ -311,9 +238,15 @@ function applyLoginContext(session, result) {
   session.openclawChannelToken = openclawChannelToken || session.openclawChannelToken || '';
 }
 
-async function handleStart(req, res, session) {
+function buildQrConnectUrl(state) {
+  const redirectUri = encodeURIComponent(WX_LOGIN_INFO.redirectUri);
+  return `${WX_BASE_URL}/connect/qrconnect?appid=${WX_LOGIN_INFO.appid}&scope=snsapi_login&redirect_uri=${redirectUri}&state=${state}&login_type=jssdk&self_redirect=true&style=white`;
+}
+
+async function fetchQrChallenge(session) {
   session.guid = crypto.randomUUID();
   session.state = '';
+  session.uuid = '';
   session.loginKey = '';
   session.userId = '';
   session.userInfo = null;
@@ -321,57 +254,170 @@ async function handleStart(req, res, session) {
   session.openclawChannelToken = '';
   session.apiKey = '';
 
-  const result = await postJprx('/data/4050/forward', { guid: session.guid }, session);
-  if (!result.success) {
-    return sendJson(res, 502, {
-      success: false,
-      code: result.code,
-      message: result.message,
-      details: result.data,
-    });
+  log('正在请求登录 state...');
+  const stateResult = await postJprx('/data/4050/forward', { guid: session.guid }, session);
+  if (!stateResult.success) {
+    throw new Error(`获取登录 state 失败: ${stateResult.message}`);
   }
 
-  const state = firstString(result.data?.state);
+  const state = firstString(stateResult.data?.state);
+  if (!state) {
+    throw new Error('获取登录 state 失败: 响应里没有 state');
+  }
+
   session.state = state;
 
-  return sendJson(res, 200, {
-    success: true,
-    appid: WX_LOGIN_INFO.appid,
-    redirectUri: WX_LOGIN_INFO.redirectUri,
-    wxLoginStyleBase64: WX_LOGIN_INFO.wxLoginStyleBase64,
-    guid: session.guid,
-    state,
-  });
+  const qrPageUrl = buildQrConnectUrl(state);
+  log('正在获取微信二维码页面...');
+  const html = await fetch(qrPageUrl).then((response) => response.text());
+
+  const uuid =
+    html.match(/\/connect\/qrcode\/([A-Za-z0-9]+)/)?.[1] ||
+    html.match(/var G="([A-Za-z0-9]+)"/)?.[1] ||
+    '';
+
+  if (!uuid) {
+    throw new Error('解析二维码 uuid 失败');
+  }
+
+  session.uuid = uuid;
+  return { state, uuid, qrPageUrl };
 }
 
-async function handleCallback(req, res, session) {
-  const body = await readJsonBody(req);
-  const code = firstString(body.code);
-  if (!code) {
-    return sendJson(res, 400, { success: false, message: '缺少 code' });
-  }
-  if (!session.guid || !session.state) {
-    return sendJson(res, 400, { success: false, message: '请先初始化二维码' });
+function decodeJpegToBinaryMatrix(buffer) {
+  const image = jpeg.decode(buffer, { useTArray: true });
+  const { width, height, data } = image;
+  const rowBits = [];
+  const y = Math.floor(height / 2);
+
+  for (let x = 0; x < width; x += 1) {
+    const index = (y * width + x) * 4;
+    const gray = data[index];
+    rowBits.push(gray < 128 ? 1 : 0);
   }
 
-  const result = await postJprx('/data/4026/forward', {
+  const runs = [];
+  let current = rowBits[0];
+  let count = 1;
+  for (let i = 1; i < rowBits.length; i += 1) {
+    if (rowBits[i] === current) {
+      count += 1;
+    } else {
+      runs.push(count);
+      current = rowBits[i];
+      count = 1;
+    }
+  }
+  runs.push(count);
+
+  let moduleSize = runs[0] || 1;
+  for (const run of runs.slice(1)) {
+    moduleSize = gcd(moduleSize, run);
+  }
+
+  if (moduleSize < 2 || width % moduleSize !== 0 || height % moduleSize !== 0) {
+    throw new Error(`二维码模块尺寸识别失败: moduleSize=${moduleSize}, width=${width}, height=${height}`);
+  }
+
+  const moduleCountX = width / moduleSize;
+  const moduleCountY = height / moduleSize;
+  const matrix = [];
+
+  for (let my = 0; my < moduleCountY; my += 1) {
+    const row = [];
+    for (let mx = 0; mx < moduleCountX; mx += 1) {
+      const sampleX = Math.min(width - 1, mx * moduleSize + Math.floor(moduleSize / 2));
+      const sampleY = Math.min(height - 1, my * moduleSize + Math.floor(moduleSize / 2));
+      const index = (sampleY * width + sampleX) * 4;
+      const gray = data[index];
+      row.push(gray < 128);
+    }
+    matrix.push(row);
+  }
+
+  return matrix;
+}
+
+function renderQrMatrix(matrix) {
+  const lines = matrix.map((row) => row.map((cell) => (cell ? '██' : '  ')).join(''));
+  return `\n${lines.join('\n')}\n`;
+}
+
+async function printQrCode(uuid) {
+  log(`正在下载二维码图片，uuid=${uuid}`);
+  const imageBuffer = Buffer.from(await fetch(`${WX_BASE_URL}/connect/qrcode/${uuid}`).then((response) => response.arrayBuffer()));
+  const matrix = decodeJpegToBinaryMatrix(imageBuffer);
+  process.stdout.write(renderQrMatrix(matrix));
+}
+
+function parseLongPollScript(script) {
+  const errcode = Number(script.match(/window\.wx_errcode=(\d+)/)?.[1] || NaN);
+  const code = script.match(/window\.wx_code='([^']*)'/)?.[1] || '';
+  return { errcode, code };
+}
+
+async function waitForWxCode(uuid) {
+  log('开始轮询扫码状态...');
+  let last = '';
+
+  while (true) {
+    const script = await fetch(`${WX_LONGPOLL_BASE_URL}/connect/l/qrconnect?uuid=${uuid}${last ? `&last=${last}` : ''}`).then((response) => response.text());
+    const { errcode, code } = parseLongPollScript(script);
+
+    if (errcode === 404) {
+      log('二维码已扫描，等待微信里点击允许...');
+      last = String(errcode);
+      await sleep(100);
+      continue;
+    }
+
+    if (errcode === 403) {
+      log('用户取消了本次登录，继续等待下一次扫描...');
+      last = String(errcode);
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    if (errcode === 408) {
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    if (errcode === 402) {
+      throw new Error('二维码已过期');
+    }
+
+    if (errcode === 405 && code) {
+      log('微信确认完成，已拿到登录 code。');
+      return code;
+    }
+
+    if (!Number.isNaN(errcode)) {
+      log(`收到未处理的微信状态码: ${errcode}`);
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    throw new Error(`解析微信轮询响应失败: ${script.slice(0, 120)}`);
+  }
+}
+
+async function completeLogin(session, code) {
+  log('正在调用 4026 换取登录态...');
+  const callbackResult = await postJprx('/data/4026/forward', {
     guid: session.guid,
     state: session.state,
     code,
   }, session);
 
-  if (!result.success) {
-    return sendJson(res, 502, {
-      success: false,
-      code: result.code,
-      message: result.message,
-      details: result.data,
-    });
+  if (!callbackResult.success) {
+    throw new Error(`登录回调失败: ${callbackResult.message}`);
   }
 
-  applyLoginContext(session, result);
+  applyLoginContext(session, callbackResult);
 
   if ((!session.userInfo || !session.userInfo.userId) && session.guid) {
+    log('4026 未返回完整 user_info，补调 4027...');
     const userInfoResult = await postJprx('/data/4027/forward', { guid: session.guid }, session);
     if (userInfoResult.success) {
       applyLoginContext(session, userInfoResult);
@@ -379,166 +425,93 @@ async function handleCallback(req, res, session) {
   }
 
   if (!session.openclawChannelToken) {
+    log('当前没有 openclaw_channel_token，补调 4058...');
     const channelTokenResult = await postJprx('/data/4058/forward', {}, session);
     if (channelTokenResult.success) {
       applyLoginContext(session, channelTokenResult);
     }
   }
 
-  return sendJson(res, 200, {
-    success: true,
-    userInfo: session.userInfo || {},
-    userId: session.userId || '',
-    guid: session.guid || '',
-    hasLoginKey: Boolean(session.loginKey),
-    hasJwtToken: Boolean(session.jwtToken),
-    openclawChannelToken: session.openclawChannelToken || '',
-    debug: {
-      bodyHasToken: Boolean(
-        firstString(
-          result.data?.token,
-          result.raw?.data?.resp?.data?.token,
-          result.raw?.data?.data?.token,
-          result.raw?.resp?.data?.token
-        )
-      ),
-      bodyHasUserInfo: Boolean(
-        firstObject(
-          result.data?.userInfo,
-          result.data?.user_info,
-          result.raw?.data?.resp?.data?.userInfo,
-          result.raw?.data?.resp?.data?.user_info,
-          result.raw?.data?.data?.userInfo,
-          result.raw?.data?.data?.user_info
-        )
-      ),
-      bodyHasLoginKey: Boolean(
-        firstString(
-          result.data?.loginKey,
-          result.data?.login_key,
-          result.raw?.data?.resp?.data?.loginKey,
-          result.raw?.data?.resp?.data?.login_key
-        )
-      ),
-    },
-  });
+  log(
+    `登录成功，loginKey=${session.loginKey ? 'yes' : 'no'}，jwt=${session.jwtToken ? 'yes' : 'no'}，channelToken=${session.openclawChannelToken ? 'yes' : 'no'}。`
+  );
 }
 
-async function handleApiKey(_req, res, session) {
-  if (!session.guid) {
-    return sendJson(res, 400, { success: false, message: '当前会话没有 guid，请重新扫码' });
-  }
-
-  const result = await postJprx('/data/4055/forward', {}, session);
-  if (!result.success) {
-    return sendJson(res, 502, {
-      success: false,
-      code: result.code,
-      message: result.message,
-      details: result.data,
-      context: {
-        hasLoginKey: Boolean(session.loginKey),
-        hasJwtToken: Boolean(session.jwtToken),
-        userId: session.userId || '',
-        guid: session.guid || '',
-      },
-    });
+async function fetchApiKey(session) {
+  log('正在调用 4055 获取 apiKey...');
+  const apiKeyResult = await postJprx('/data/4055/forward', {}, session);
+  if (!apiKeyResult.success) {
+    throw new Error(`获取 apiKey 失败: ${apiKeyResult.message}`);
   }
 
   const apiKey = firstString(
-    result.data?.key,
-    result.raw?.data?.key,
-    result.raw?.data?.resp?.data?.key,
-    result.raw?.resp?.data?.key
+    apiKeyResult.data?.key,
+    apiKeyResult.raw?.data?.key,
+    apiKeyResult.raw?.data?.resp?.data?.key,
+    apiKeyResult.raw?.resp?.data?.key
   );
 
   if (!apiKey) {
-    return sendJson(res, 502, {
-      success: false,
-      message: '接口返回成功，但没有拿到 apiKey',
-      details: result.data,
-    });
+    throw new Error('4055 返回成功，但响应里没有 key');
   }
 
   session.apiKey = apiKey;
-
-  return sendJson(res, 200, {
-    success: true,
-    apiKey,
-    userInfo: session.userInfo || {},
-    userId: session.userId || '',
-    guid: session.guid || '',
-  });
+  return apiKey;
 }
 
-async function handleStatus(_req, res, session) {
-  return sendJson(res, 200, {
-    success: true,
-    session: {
-      guid: session.guid || '',
-      state: session.state || '',
-      userId: session.userId || '',
-      hasLoginKey: Boolean(session.loginKey),
-      hasJwtToken: Boolean(session.jwtToken),
-      hasApiKey: Boolean(session.apiKey),
-    },
-  });
+function printApiKey(apiKey) {
+  process.stdout.write('\n');
+  log('apiKey 获取成功。');
+  process.stdout.write(`${apiKey}\n\n`);
+  process.stdout.write(
+    `curl 'https://mmgrcalltoken.3g.qq.com/aizone/v1/chat/completions' \\\n` +
+      `  -H 'Authorization: Bearer ${apiKey}' \\\n` +
+      `  -H 'Content-Type: application/json' \\\n` +
+      `  -d '{\n` +
+      `    "model": "modelroute",\n` +
+      `    "messages": [\n` +
+      `      { "role": "user", "content": "hi" }\n` +
+      `    ],\n` +
+      `    "max_tokens": 64\n` +
+      `  }'\n`
+  );
 }
 
-function serveStatic(req, res) {
-  let requestedPath = req.url === '/' ? '/index.html' : req.url;
-  requestedPath = requestedPath.split('?')[0];
-  const safePath = path.normalize(requestedPath).replace(/^(\.\.[/\\])+/, '');
-  const filePath = path.join(PUBLIC_DIR, safePath);
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    return sendText(res, 403, 'Forbidden');
-  }
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      if (error.code === 'ENOENT') {
-        return sendText(res, 404, 'Not Found');
+async function run() {
+  const session = {};
+
+  process.on('SIGINT', () => {
+    process.stdout.write('\n');
+    log('已中断。');
+    process.exit(130);
+  });
+
+  while (true) {
+    try {
+      const { uuid } = await fetchQrChallenge(session);
+      log(`guid=${session.guid}`);
+      log(`state=${session.state}`);
+      log('请使用微信扫描下面的二维码：');
+      await printQrCode(uuid);
+
+      const code = await waitForWxCode(uuid);
+      await completeLogin(session, code);
+      const apiKey = await fetchApiKey(session);
+      printApiKey(apiKey);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log(message);
+
+      if (message.includes('二维码已过期')) {
+        log('正在重新生成二维码...');
+        continue;
       }
-      return sendText(res, 500, 'Internal Server Error');
+
+      process.exitCode = 1;
+      return;
     }
-    res.writeHead(200, {
-      'Content-Type': getMimeType(filePath),
-      'Cache-Control': 'no-store',
-      'Content-Length': content.length,
-    });
-    res.end(content);
-  });
+  }
 }
 
-const server = http.createServer(async (req, res) => {
-  try {
-    const session = getOrCreateSession(req, res);
-    const pathname = (req.url || '/').split('?')[0];
-
-    if (req.method === 'GET' && pathname === '/api/login/start') {
-      return await handleStart(req, res, session);
-    }
-    if (req.method === 'POST' && pathname === '/api/login/callback') {
-      return await handleCallback(req, res, session);
-    }
-    if (req.method === 'POST' && pathname === '/api/login/apikey') {
-      return await handleApiKey(req, res, session);
-    }
-    if (req.method === 'GET' && pathname === '/api/login/status') {
-      return await handleStatus(req, res, session);
-    }
-    if (req.method === 'GET') {
-      return serveStatic(req, res);
-    }
-
-    return sendText(res, 405, 'Method Not Allowed');
-  } catch (error) {
-    return sendJson(res, 500, {
-      success: false,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-});
-
-server.listen(PORT, HOST, () => {
-  console.log(`QClaw QR login web is running at http://${HOST}:${PORT}`);
-});
+run();

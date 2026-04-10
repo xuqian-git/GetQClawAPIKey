@@ -1,0 +1,13 @@
+{
+  "name": "get-qclaw-api-key",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CLI tool to login QClaw by WeChat QR and print apiKey",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4"
+  }
+}
