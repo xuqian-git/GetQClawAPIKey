@@ -1,3 +1,5 @@
+qclaw客户端已更新授权方式，此项目方式暂时不可用，后续视情况决定是否继续更新，谢谢
+
 # GetQClawAPIKey
 
 一个本地 Node CLI 工具，用微信扫码登录 QClaw，并在终端直接打印可用的明文 `apiKey`。
